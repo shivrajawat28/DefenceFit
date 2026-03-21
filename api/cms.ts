@@ -1,7 +1,7 @@
-import { isAdminRequestAuthenticated } from "./_lib/admin-session";
-import { getCmsDataFromStore, saveCmsDataToStore } from "./_lib/cms-store";
-import { errorResponse, jsonResponse, parseJsonBody } from "./_lib/http";
-import { normalizeMedicalCmsData } from "../src/app/lib/medicalData";
+import { isAdminRequestAuthenticated } from "./_lib/admin-session.js";
+import { getCmsDataFromStore, saveCmsDataToStore } from "./_lib/cms-store.js";
+import { errorResponse, jsonResponse, parseJsonBody } from "./_lib/http.js";
+import { normalizeMedicalCmsData } from "../src/app/lib/medicalData.js";
 
 export async function GET(request: Request) {
   try {

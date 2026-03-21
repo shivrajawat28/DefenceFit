@@ -1,5 +1,5 @@
-import { buildAdminLogoutCookie } from "../_lib/admin-session";
-import { jsonResponse } from "../_lib/http";
+import { buildAdminLogoutCookie } from "../_lib/admin-session.js";
+import { jsonResponse } from "../_lib/http.js";
 
 export async function POST() {
   const response = jsonResponse({ authenticated: false });

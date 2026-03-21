@@ -2,8 +2,8 @@ import {
   buildAdminSessionCookie,
   createAdminSessionToken,
   matchesAdminCredentials,
-} from "../_lib/admin-session";
-import { errorResponse, jsonResponse, parseJsonBody } from "../_lib/http";
+} from "../_lib/admin-session.js";
+import { errorResponse, jsonResponse, parseJsonBody } from "../_lib/http.js";
 
 export async function POST(request: Request) {
   const body = await parseJsonBody<{ email?: string; password?: string }>(request);

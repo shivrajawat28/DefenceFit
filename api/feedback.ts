@@ -1,6 +1,6 @@
-import { isAdminRequestAuthenticated } from "./_lib/admin-session";
-import { createFeedbackInStore, deleteFeedbackFromStore } from "./_lib/cms-store";
-import { errorResponse, jsonResponse, parseJsonBody } from "./_lib/http";
+import { isAdminRequestAuthenticated } from "./_lib/admin-session.js";
+import { createFeedbackInStore, deleteFeedbackFromStore } from "./_lib/cms-store.js";
+import { errorResponse, jsonResponse, parseJsonBody } from "./_lib/http.js";
 
 export async function POST(request: Request) {
   const body = await parseJsonBody<{
