@@ -27,12 +27,18 @@ create table if not exists public.feedback_entries (
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ADMIN_EMAIL`
 - `ADMIN_PASSWORD`
+- `ADMIN_EMAIL_2`, `ADMIN_PASSWORD_2` (optional extra admin)
+- `ADMIN_EMAIL_3`, `ADMIN_PASSWORD_3` (optional extra admin)
+- `ADMIN_EMAIL_4`, `ADMIN_PASSWORD_4` (optional extra admin)
 - `ADMIN_SESSION_SECRET`
 
 ## 3. Recommended values
 
 - `ADMIN_EMAIL`: your live admin email
 - `ADMIN_PASSWORD`: your live admin password
+- `ADMIN_EMAIL_2` / `ADMIN_PASSWORD_2`: second admin login
+- `ADMIN_EMAIL_3` / `ADMIN_PASSWORD_3`: third admin login
+- `ADMIN_EMAIL_4` / `ADMIN_PASSWORD_4`: fourth admin login
 - `ADMIN_SESSION_SECRET`: a long random secret string
 
 ## 4. Redeploy after adding env vars

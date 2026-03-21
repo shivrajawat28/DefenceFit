@@ -7,6 +7,11 @@ const SESSION_SECRET =
 const SESSION_COOKIE = "defencefit_admin_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
+type AdminCredential = {
+  email: string;
+  password: string;
+};
+
 const signValue = (value: string) =>
   crypto.createHmac("sha256", SESSION_SECRET).update(value).digest("hex");
 
@@ -38,8 +43,50 @@ const parseCookies = (cookieHeader: string | null) => {
   );
 };
 
-export const matchesAdminCredentials = (email: string, password: string) =>
-  email.trim() === ADMIN_EMAIL && password === ADMIN_PASSWORD;
+const getConfiguredAdminCredentials = (): AdminCredential[] => {
+  const credentials: AdminCredential[] = [];
+  const seenEmails = new Set<string>();
+
+  const addCredential = (email: string | undefined, password: string | undefined) => {
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!normalizedEmail || !password || seenEmails.has(normalizedEmail)) {
+      return;
+    }
+
+    credentials.push({
+      email: normalizedEmail,
+      password,
+    });
+    seenEmails.add(normalizedEmail);
+  };
+
+  addCredential(ADMIN_EMAIL, ADMIN_PASSWORD);
+
+  Object.keys(process.env)
+    .map((key) => {
+      const match = key.match(/^ADMIN_EMAIL_(\d+)$/);
+      return match ? Number(match[1]) : null;
+    })
+    .filter((index): index is number => index !== null)
+    .sort((left, right) => left - right)
+    .forEach((index) => {
+      addCredential(
+        process.env[`ADMIN_EMAIL_${index}`],
+        process.env[`ADMIN_PASSWORD_${index}`],
+      );
+    });
+
+  return credentials;
+};
+
+export const matchesAdminCredentials = (email: string, password: string) => {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  return getConfiguredAdminCredentials().some(
+    (credential) =>
+      credential.email === normalizedEmail && credential.password === password,
+  );
+};
 
 export const createAdminSessionToken = () => {
   const expiry = String(Date.now() + SESSION_MAX_AGE * 1000);
