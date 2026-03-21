@@ -75,6 +75,8 @@ export interface MedicalCmsData {
   feedback: FeedbackItem[];
 }
 
+export type SiteContentData = Omit<MedicalCmsData, "feedback">;
+
 export interface CandidateProfile {
   name: string;
   age: string;
@@ -2230,48 +2232,79 @@ const withOfficialQuestionBanks = (data: MedicalCmsData): MedicalCmsData => {
 export const getBodyAreaMeta = (area: BodyArea) =>
   BODY_AREAS.find((item) => item.value === area) ?? BODY_AREAS[BODY_AREAS.length - 1];
 
+export const createDefaultMedicalCmsData = (): MedicalCmsData =>
+  withOfficialQuestionBanks(cloneData(DEFAULT_MEDICAL_CMS_DATA));
+
+export const normalizeMedicalCmsData = (
+  parsed?: Partial<MedicalCmsData> | null,
+): MedicalCmsData => {
+  const fallback = createDefaultMedicalCmsData();
+
+  if (!parsed) {
+    return fallback;
+  }
+
+  return withOfficialQuestionBanks({
+    exams: Array.isArray(parsed.exams)
+      ? (parsed.exams
+          .map((exam) => sanitizeExam(exam))
+          .filter(Boolean) as DefenceExam[])
+      : fallback.exams,
+    questions: Array.isArray(parsed.questions)
+      ? (parsed.questions
+          .map((question) => sanitizeQuestion(question))
+          .filter(Boolean) as MedicalQuestion[])
+      : fallback.questions,
+    articles: Array.isArray(parsed.articles)
+      ? (parsed.articles
+          .map((article) => sanitizeArticle(article))
+          .filter(Boolean) as AppArticle[])
+      : fallback.articles,
+    sponsors: Array.isArray(parsed.sponsors)
+      ? (parsed.sponsors
+          .map((sponsor) => sanitizeSponsor(sponsor))
+          .filter(Boolean) as SponsorItem[])
+      : fallback.sponsors,
+    feedback: Array.isArray(parsed.feedback)
+      ? (parsed.feedback
+          .map((item) => sanitizeFeedback(item))
+          .filter(Boolean) as FeedbackItem[])
+      : [],
+  });
+};
+
+export const toSiteContentData = (data: MedicalCmsData): SiteContentData => ({
+  exams: data.exams,
+  questions: data.questions,
+  articles: data.articles,
+  sponsors: data.sponsors,
+});
+
+export const mergeSiteContentWithFeedback = (
+  content: SiteContentData,
+  feedback: FeedbackItem[],
+): MedicalCmsData =>
+  normalizeMedicalCmsData({
+    ...content,
+    feedback,
+  });
+
 export const loadMedicalCmsData = (): MedicalCmsData => {
   if (typeof window === "undefined") {
-    return withOfficialQuestionBanks(cloneData(DEFAULT_MEDICAL_CMS_DATA));
+    return createDefaultMedicalCmsData();
   }
 
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      return withOfficialQuestionBanks(cloneData(DEFAULT_MEDICAL_CMS_DATA));
+      return createDefaultMedicalCmsData();
     }
 
     const parsed = JSON.parse(raw) as Partial<MedicalCmsData>;
 
-    return withOfficialQuestionBanks({
-      exams: Array.isArray(parsed.exams)
-        ? (parsed.exams
-            .map((exam) => sanitizeExam(exam))
-            .filter(Boolean) as DefenceExam[])
-        : cloneData(DEFAULT_MEDICAL_CMS_DATA).exams,
-      questions: Array.isArray(parsed.questions)
-        ? (parsed.questions
-            .map((question) => sanitizeQuestion(question))
-            .filter(Boolean) as MedicalQuestion[])
-        : cloneData(DEFAULT_MEDICAL_CMS_DATA).questions,
-      articles: Array.isArray(parsed.articles)
-        ? (parsed.articles
-            .map((article) => sanitizeArticle(article))
-            .filter(Boolean) as AppArticle[])
-        : cloneData(DEFAULT_MEDICAL_CMS_DATA).articles,
-      sponsors: Array.isArray(parsed.sponsors)
-        ? (parsed.sponsors
-            .map((sponsor) => sanitizeSponsor(sponsor))
-            .filter(Boolean) as SponsorItem[])
-        : cloneData(DEFAULT_MEDICAL_CMS_DATA).sponsors,
-      feedback: Array.isArray(parsed.feedback)
-        ? (parsed.feedback
-            .map((item) => sanitizeFeedback(item))
-            .filter(Boolean) as FeedbackItem[])
-        : [],
-    });
+    return normalizeMedicalCmsData(parsed);
   } catch {
-    return withOfficialQuestionBanks(cloneData(DEFAULT_MEDICAL_CMS_DATA));
+    return createDefaultMedicalCmsData();
   }
 };
 

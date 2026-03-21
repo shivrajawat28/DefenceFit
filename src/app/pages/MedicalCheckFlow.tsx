@@ -31,6 +31,7 @@ import {
   type CandidateGender,
   type MedicalCmsData,
 } from "../lib/medicalData";
+import { fetchMedicalCmsDataFromApi } from "../lib/cmsApi";
 
 interface CandidateProfileForm {
   name: string;
@@ -62,7 +63,18 @@ export default function MedicalCheckFlow() {
   });
 
   useEffect(() => {
-    setMedicalData(loadMedicalCmsData());
+    let isMounted = true;
+
+    void (async () => {
+      const data = await fetchMedicalCmsDataFromApi();
+      if (isMounted) {
+        setMedicalData(data);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {

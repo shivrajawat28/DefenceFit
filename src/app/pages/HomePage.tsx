@@ -23,10 +23,13 @@ import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
 import {
   loadMedicalCmsData,
-  makeId,
   saveMedicalCmsData,
   type MedicalCmsData,
 } from "../lib/medicalData";
+import {
+  fetchMedicalCmsDataFromApi,
+  submitFeedbackToApi,
+} from "../lib/cmsApi";
 
 interface FeedbackFormState {
   name: string;
@@ -48,13 +51,26 @@ export default function HomePage() {
   const [feedbackForm, setFeedbackForm] =
     useState<FeedbackFormState>(emptyFeedbackForm);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
   const { scrollY } = useScroll();
   const heroOpacity = useTransform(scrollY, [0, 320], [1, 0]);
   const heroScale = useTransform(scrollY, [0, 320], [1, 1.08]);
 
   useEffect(() => {
-    setMedicalData(loadMedicalCmsData());
+    let isMounted = true;
+
+    void (async () => {
+      const nextData = await fetchMedicalCmsDataFromApi();
+      if (isMounted) {
+        setMedicalData(nextData);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -75,34 +91,42 @@ export default function HomePage() {
     [medicalData.articles],
   );
 
-  const handleFeedbackSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleFeedbackSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!feedbackForm.message.trim()) {
       return;
     }
 
-    const nextData = {
-      ...medicalData,
-      feedback: [
-        {
-          id: makeId("feedback"),
-          name: feedbackForm.name.trim() || "Anonymous",
-          email: feedbackForm.email.trim(),
-          message: feedbackForm.message.trim(),
-          createdAt: new Date().toISOString(),
-        },
-        ...medicalData.feedback,
-      ],
-    };
+    setIsSubmittingFeedback(true);
+    setFeedbackError("");
 
-    setMedicalData(nextData);
-    saveMedicalCmsData(nextData);
-    setFeedbackForm(emptyFeedbackForm);
-    setFeedbackSubmitted(true);
-    window.setTimeout(() => {
-      setFeedbackSubmitted(false);
-    }, 5000);
+    try {
+      const feedback = await submitFeedbackToApi({
+        name: feedbackForm.name,
+        email: feedbackForm.email,
+        message: feedbackForm.message,
+      });
+
+      const nextData = {
+        ...medicalData,
+        feedback: [feedback, ...medicalData.feedback],
+      };
+
+      setMedicalData(nextData);
+      saveMedicalCmsData(nextData);
+      setFeedbackForm(emptyFeedbackForm);
+      setFeedbackSubmitted(true);
+      window.setTimeout(() => {
+        setFeedbackSubmitted(false);
+      }, 5000);
+    } catch (error) {
+      setFeedbackError(
+        error instanceof Error ? error.message : "Unable to submit feedback.",
+      );
+    } finally {
+      setIsSubmittingFeedback(false);
+    }
   };
 
   return (
@@ -516,13 +540,19 @@ export default function HomePage() {
                       </p>
                     </div>
                   </div>
+                ) : feedbackError ? (
+                  <div className="rounded-2xl border-2 border-red-200 bg-red-50 p-4">
+                    <p className="font-medium text-red-900">Feedback not sent</p>
+                    <p className="text-sm text-red-700">{feedbackError}</p>
+                  </div>
                 ) : (
                   <Button
                     type="submit"
+                    disabled={isSubmittingFeedback}
                     className="w-full bg-[#2E4A3F] text-white hover:bg-[#0B1F3A]"
                   >
                     <Send className="h-4 w-4" />
-                    Submit Feedback
+                    {isSubmittingFeedback ? "Submitting..." : "Submit Feedback"}
                   </Button>
                 )}
               </form>

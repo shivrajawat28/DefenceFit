@@ -7,6 +7,7 @@ import { Card } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { loadMedicalCmsData, type AppArticle } from "../lib/medicalData";
+import { fetchMedicalCmsDataFromApi } from "../lib/cmsApi";
 
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<AppArticle[]>(() =>
@@ -16,7 +17,18 @@ export default function ArticlesPage() {
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    setArticles(loadMedicalCmsData().articles);
+    let isMounted = true;
+
+    void (async () => {
+      const data = await fetchMedicalCmsDataFromApi();
+      if (isMounted) {
+        setArticles(data.articles);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const categories = useMemo(

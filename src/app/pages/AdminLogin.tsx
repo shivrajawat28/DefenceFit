@@ -7,35 +7,61 @@ import { Input } from "../components/ui/input";
 import { Card } from "../components/ui/card";
 import BrandLogo from "../components/BrandLogo";
 import {
-  clearAdminAuthenticated,
-  isAdminAuthenticated,
-  isValidAdminCredentials,
-  setAdminAuthenticated,
+  checkAdminSession,
+  loginAdmin,
 } from "../lib/adminAuth";
 
 export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAdminAuthenticated()) {
-      navigate("/admin/dashboard", { replace: true });
-    }
+    let isMounted = true;
+
+    void (async () => {
+      const authenticated = await checkAdminSession();
+      if (authenticated) {
+        navigate("/admin/dashboard", { replace: true });
+        return;
+      }
+
+      if (isMounted) {
+        setIsCheckingSession(false);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [navigate]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isValidAdminCredentials(email, password)) {
-      setAdminAuthenticated();
+    setIsSubmitting(true);
+    const result = await loginAdmin(email, password);
+
+    if (result.ok) {
       navigate("/admin/dashboard");
       return;
     }
 
-    clearAdminAuthenticated();
     navigate("/", { replace: true });
+    setIsSubmitting(false);
   };
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0B1F3A] via-[#2E4A3F] to-[#0B1F3A]">
+        <div className="text-center text-white">
+          <p className="text-lg font-semibold">Checking admin session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0B1F3A] via-[#2E4A3F] to-[#0B1F3A] flex items-center justify-center p-4">
@@ -125,9 +151,10 @@ export default function AdminLogin() {
 
               <Button
                 type="submit"
+                disabled={isSubmitting}
                 className="w-full bg-[#2E4A3F] hover:bg-[#0B1F3A] text-white py-6 text-lg group"
               >
-                Sign In to Dashboard
+                {isSubmitting ? "Signing In..." : "Sign In to Dashboard"}
                 <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </form>

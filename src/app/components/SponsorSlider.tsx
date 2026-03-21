@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { loadMedicalCmsData, type SponsorItem } from "../lib/medicalData";
+import { fetchMedicalCmsDataFromApi } from "../lib/cmsApi";
 
 export default function SponsorSlider() {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -24,7 +25,18 @@ export default function SponsorSlider() {
   };
 
   useEffect(() => {
-    setSponsors(loadMedicalCmsData().sponsors);
+    let isMounted = true;
+
+    void (async () => {
+      const data = await fetchMedicalCmsDataFromApi();
+      if (isMounted) {
+        setSponsors(data.sponsors);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {

@@ -41,9 +41,14 @@ import {
   type SponsorItem,
 } from "../lib/medicalData";
 import {
-  clearAdminAuthenticated,
-  isAdminAuthenticated,
+  checkAdminSession,
+  logoutAdmin,
 } from "../lib/adminAuth";
+import {
+  deleteFeedbackFromApi,
+  fetchMedicalCmsDataFromApi,
+  saveMedicalCmsDataToApi,
+} from "../lib/cmsApi";
 
 type Tab =
   | "overview"
@@ -208,15 +213,50 @@ export default function AdminDashboard() {
     getInitialMedicalData().exams[0]?.id ?? "",
   );
   const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
+  const [syncError, setSyncError] = useState("");
 
   useEffect(() => {
-    if (!isAdminAuthenticated()) {
-      navigate("/", { replace: true });
+    let isMounted = true;
+
+    void (async () => {
+      const authenticated = await checkAdminSession();
+      if (!authenticated) {
+        navigate("/", { replace: true });
+        return;
+      }
+
+      const liveData = await fetchMedicalCmsDataFromApi({ includeFeedback: true });
+
+      if (!isMounted) {
+        return;
+      }
+
+      setMedicalData(liveData);
+      setQuestionExamFilter((current) => current || liveData.exams[0]?.id || "");
+      setIsAuthorized(true);
+      setIsCheckingSession(false);
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    if (!syncMessage && !syncError) {
       return;
     }
 
-    setIsAuthorized(true);
-  }, [navigate]);
+    const timer = window.setTimeout(() => {
+      setSyncMessage("");
+      setSyncError("");
+    }, 4000);
+
+    return () => window.clearTimeout(timer);
+  }, [syncError, syncMessage]);
 
   useEffect(() => {
     if (!questionExamFilter && medicalData.exams[0]) {
@@ -233,9 +273,29 @@ export default function AdminDashboard() {
     }
   }, [medicalData.exams, questionDraft.examId]);
 
-  const persistData = (nextData: MedicalCmsData) => {
+  const persistData = async (nextData: MedicalCmsData) => {
+    const previousData = medicalData;
     setMedicalData(nextData);
     saveMedicalCmsData(nextData);
+
+    setIsSaving(true);
+    setSyncError("");
+    setSyncMessage("");
+
+    try {
+      const saved = await saveMedicalCmsDataToApi(nextData);
+      setMedicalData(saved);
+      saveMedicalCmsData(saved);
+      setSyncMessage("Saved to the live website.");
+    } catch (error) {
+      setMedicalData(previousData);
+      saveMedicalCmsData(previousData);
+      setSyncError(
+        error instanceof Error ? error.message : "Unable to save live changes.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const parsedQuestionOptions = useMemo(
@@ -316,8 +376,8 @@ export default function AdminDashboard() {
     setSponsorDraft(createEmptySponsorDraft());
   };
 
-  const handleLogout = () => {
-    clearAdminAuthenticated();
+  const handleLogout = async () => {
+    await logoutAdmin();
     navigate("/", { replace: true });
   };
 
@@ -594,15 +654,35 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDeleteFeedback = (feedbackId: string) => {
+  const handleDeleteFeedback = async (feedbackId: string) => {
     if (!window.confirm("Remove this feedback entry?")) {
       return;
     }
 
-    persistData({
+    const previousData = medicalData;
+    const nextData = {
       ...medicalData,
       feedback: medicalData.feedback.filter((item) => item.id !== feedbackId),
-    });
+    };
+
+    setMedicalData(nextData);
+    saveMedicalCmsData(nextData);
+    setIsSaving(true);
+    setSyncError("");
+    setSyncMessage("");
+
+    try {
+      await deleteFeedbackFromApi(feedbackId);
+      setSyncMessage("Feedback removed from the live website.");
+    } catch (error) {
+      setMedicalData(previousData);
+      saveMedicalCmsData(previousData);
+      setSyncError(
+        error instanceof Error ? error.message : "Unable to delete feedback.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const sidebarItems: Array<{ id: Tab; label: string; icon: typeof LayoutDashboard }> =
@@ -621,7 +701,7 @@ export default function AdminDashboard() {
   const previewGender: CandidateGender =
     questionDraft.gender === "female" ? "female" : "male";
 
-  if (!isAuthorized) {
+  if (!isAuthorized || isCheckingSession) {
     return null;
   }
 
@@ -679,6 +759,21 @@ export default function AdminDashboard() {
               {medicalData.sponsors.length}
             </div>
           </div>
+          {syncMessage ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+              {syncMessage}
+            </div>
+          ) : null}
+          {syncError ? (
+            <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              {syncError}
+            </div>
+          ) : null}
+          {isSaving ? (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">
+              Syncing changes to the live website...
+            </div>
+          ) : null}
         </header>
 
         <main className="p-8">
